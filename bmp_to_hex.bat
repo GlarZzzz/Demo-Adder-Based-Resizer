@@ -1,0 +1,1 @@
+python pre_rgb.py file1280_720.bmp verilog_input_pixels_rgb_interleaved.hex 1280 720
