@@ -1,92 +1,96 @@
+# filename: create_rgb_bmp.py
 from PIL import Image
-import numpy as np
-import os
+import sys
 
-# --- THIS IS THE CORRECT FUNCTION FOR YOUR LATEST VERILOG OUTPUT ---
-def txt_24bit_to_bmp(txt_input_path, bmp_output_path, dst_width, dst_height):
+def create_rgb_bmp_from_hex(input_hex_path, output_bmp_path, width, height):
     """
-    Reads a text file containing 24-bit hexadecimal pixel values (RRGGBB, one
-    pixel per line), parses them into R, G, B components, reshapes the data
-    into an RGB image array, and saves it as a BMP file.
+    Creates an RGB BMP image from a hex file where each line contains a 24-bit
+    RGB value (e.g., 'RRGGBB').
     """
+    rgb_pixels = []
+    problematic_lines = 0
+
     try:
-        if not os.path.exists(txt_input_path):
-            print(f"Error: Input text file '{txt_input_path}' not found.")
-            return False
-
-        # This list will hold the individual 8-bit R, G, B components
-        component_values = []
-        
-        with open(txt_input_path, 'r') as f:
-            for line_num, line in enumerate(f, 1):
-                line_stripped = line.strip()
-                if not line_stripped:
+        with open(input_hex_path, 'r') as f:
+            line_number = 0
+            for line_raw in f:
+                line_number += 1
+                line = line_raw.strip()
+                if not line:  # Skip empty lines
                     continue
                 try:
-                    # --- THE KEY OPERATION: PARSING THE 24-BIT VALUE ---
-                    # Read the full 24-bit hex value from the line
-                    pixel_24bit = int(line_stripped, 16) # base 16 for hex
+                    # Convert hex string (e.g., 'FF8000') to an integer
+                    hex_val = int(line, 16)
                     
-                    # Extract R, G, B components using bit-shifting and masking
-                    r_val = (pixel_24bit >> 16) & 0xFF
-                    g_val = (pixel_24bit >> 8) & 0xFF
-                    b_val =  pixel_24bit & 0xFF
+                    # Extract R, G, B components using bitwise operations
+                    # R is in bits 23-16, G in bits 15-8, B in bits 7-0
+                    r = (hex_val >> 16) & 0xFF
+                    g = (hex_val >> 8) & 0xFF
+                    b = hex_val & 0xFF
                     
-                    # Append components in R, G, B order
-                    component_values.append(r_val)
-                    component_values.append(g_val)
-                    component_values.append(b_val)
+                    # Append the (R, G, B) tuple to the list
+                    rgb_pixels.append((r, g, b))
                     
                 except ValueError:
-                    print(f"Warning: Skipping non-hex or malformed value at line {line_num}: '{line_stripped}'")
-                    continue
-        
-        print(f"Read {len(component_values)//3} pixels from {txt_input_path}")
+                    print(f"Python Value Error: Failed to parse line {line_number}: '{line}' - Appending black (0,0,0) instead.")
+                    # Append a default black pixel if parsing fails
+                    rgb_pixels.append((0, 0, 0))
+                    problematic_lines += 1
+    except FileNotFoundError:
+        print(f"Error: Input hex file '{input_hex_path}' not found.")
+        sys.exit(1)
+    except Exception as e: # Catch other potential IO errors
+        print(f"Error reading file '{input_hex_path}': {e}")
+        sys.exit(1)
 
-        expected_pixels = dst_width * dst_height
-        if (len(component_values) // 3) != expected_pixels:
-            print(f"Error: Expected {expected_pixels} pixels for image size {dst_width}x{dst_height}, but got {len(component_values)//3}.")
-            # In case of mismatch, you can choose to pad or truncate if needed for debugging.
-            # For this final script, we will return an error to ensure correctness.
-            return False
+    if problematic_lines > 0:
+        print(f"Warning: Encountered {problematic_lines} problematic line(s) that were replaced with black pixels.")
 
-        # Reshape the list of components into the image array
-        img_array = np.array(component_values, dtype=np.uint8).reshape((dst_height, dst_width, 3))
+    expected_pixels = width * height
+    actual_pixels = len(rgb_pixels)
 
-        img = Image.fromarray(img_array, mode='RGB')
-        print(f"Created RGB image of size ({dst_width}x{dst_height}).")
-        
-        img.save(bmp_output_path)
-        print(f"Output RGB image saved to {bmp_output_path}")
-        return True
+    if actual_pixels != expected_pixels:
+        print(f"Error/Warning: Expected {expected_pixels} pixels, but found {actual_pixels} in hex file.")
+        if actual_pixels < expected_pixels:
+            padding_count = expected_pixels - actual_pixels
+            print(f"Padding with {padding_count} black pixel(s) to meet target size.")
+            # Pad with black pixels
+            rgb_pixels.extend([(0, 0, 0)] * padding_count)
+        elif actual_pixels > expected_pixels:
+            print(f"Truncating to {expected_pixels} pixels.")
+            rgb_pixels = rgb_pixels[:expected_pixels]
 
-    except Exception as e:
-        print(f"An unexpected error occurred during post-processing: {e}")
-        return False
-
-# You can keep the old function for reference if you want
-def txt_to_bmp_rgb_sequential(txt_input_path, bmp_output_path, dst_width, dst_height):
-    # This is your original function that reads 8-bit components per line.
-    # It won't work with the latest Verilog output but is kept here.
+    # Create a new RGB image
     try:
-        # (Function body is the same as your original)
-        pass # To avoid syntax error
+        # Use 'RGB' mode for 24-bit color images
+        img = Image.new('RGB', (width, height))
+        # putdata expects a sequence of (R, G, B) tuples for RGB mode
+        img.putdata(rgb_pixels)
     except Exception as e:
-        pass
+        print(f"Error creating image with PIL: {e}")
+        sys.exit(1)
+
+    try:
+        img.save(output_bmp_path)
+        print(f"Successfully created '{output_bmp_path}' ({width}x{height}) from '{input_hex_path}'")
+    except Exception as e:
+        print(f"Error saving BMP file '{output_bmp_path}': {e}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
-    # --- Configuration (MUST match your Verilog DST_WIDTH, DST_HEIGHT parameters) ---
-    VERILOG_DST_WIDTH = 640
-    VERILOG_DST_HEIGHT = 480
+    if len(sys.argv) != 5:
+        print("Usage: python create_rgb_bmp.py <input_hex_file> <output_bmp_file> <width> <height>")
+        sys.exit(1)
 
-    input_txt_from_verilog = "verilog_output_pixels.txt"
-    output_bmp_file = "output_resized_image.bmp"
+    input_file_arg = sys.argv[1]
+    output_file_arg = sys.argv[2]
+    
+    try:
+        width_arg = int(sys.argv[3])
+        height_arg = int(sys.argv[4])
+    except ValueError:
+        print("Error: Width and height must be integer values.")
+        sys.exit(1)
 
-    print("--- Starting Post-processing (24-bit/pixel mode) ---")
-    if txt_24bit_to_bmp(input_txt_from_verilog, output_bmp_file, VERILOG_DST_WIDTH, VERILOG_DST_HEIGHT):
-        print("\nPost-processing successful!")
-        print(f"You can now view the final resized image at '{output_bmp_file}'.")
-    else:
-        print("\nPost-processing failed. Please review error messages and check input/Verilog output.")
-    print("--------------------------------------------------")
+    create_rgb_bmp_from_hex(input_file_arg, output_file_arg, width_arg, height_arg)
