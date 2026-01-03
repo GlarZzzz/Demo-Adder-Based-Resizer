@@ -54,7 +54,7 @@ module Demo_tb_Adder_Base_Resize;
     integer               output_file_handle;
 
 
-    Demo_Adder_Base_Resize_Design_Source (
+    Demo_Adder_Base_Resize_Design_Source dut_inst(
         .aclk(aclk), .aresetn(aresetn),
         .s_axis_tdata(s_axis_tdata_tb), .s_axis_tvalid(s_axis_tvalid_tb), .s_axis_tready(s_axis_tready_tb),
         .s_axis_tlast(s_axis_tlast_tb), .s_axis_tuser(s_axis_tuser_tb),
