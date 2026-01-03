@@ -1,0 +1,1 @@
+python post_rgb.py verilog_output_pixels.hex output_resized_image.bmp 640 480
