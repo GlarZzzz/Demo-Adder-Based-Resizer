@@ -31,7 +31,7 @@ module Demo_tb_Adder_Base_Resize;
     localparam DST_HEIGHT = 480;
     localparam FRAC_BITS  = 16;
     localparam INPUT_PIXEL_FILE  = "input_pixels_rgb.hex";
-    localparam OUTPUT_PIXEL_FILE = "verilog_output_pixels.txt";
+    localparam OUTPUT_PIXEL_FILE = "verilog_output_pixels.hex";
     localparam TOTAL_SRC_PIXELS = SRC_WIDTH * SRC_HEIGHT;
     localparam TOTAL_DST_PIXELS = DST_WIDTH * DST_HEIGHT;
 
